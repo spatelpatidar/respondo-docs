@@ -36,19 +36,18 @@
   var shell = document.createElement("div");
   shell.innerHTML =
     '<a class="skip" href="#main">Skip to content</a>' +
-    '<header class="header">' +
+    '<header class="header"><div class="hdr-left">' +
       '<button class="icon-btn menu-btn" id="menuBtn" aria-label="Open navigation">' + MENU + '</button>' +
       '<a class="brand" href="index.html"><svg class="logo" viewBox="0 0 400 400" width="30" height="30" aria-hidden="true"><rect width="400" height="400" rx="80" fill="var(--surface-2)" stroke="var(--border)" stroke-width="4"/><g transform="translate(0 30)" fill="none" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"><path d="M 128 280 L 128 80" stroke="var(--json)"/><path d="M 128 80 H 215 C 265 80, 265 175, 215 175 H 146" stroke="var(--gql)"/><path d="M 146 175 L 240 280" stroke="var(--grpc)"/></g></svg>Respondo</a>' +
-      '<nav class="topnav" aria-label="Gems">' +
+      '</div><nav class="topnav" aria-label="Gems">' +
         ["respondo", "graphql", "grpc", "compare"].map(function (k) {
           var p = nav(k), label = { respondo: "respondo", graphql: "respondo-graphql", grpc: "respondo-grpc", compare: "Compare" }[k];
           return '<a href="' + p.href + '"' + (k === current ? ' class="active"' : "") + ">" + label + "</a>";
         }).join("") +
       "</nav>" +
-      '<span class="spacer"></span>' +
-      '<button class="search-btn" id="searchBtn" aria-label="Search docs">' + SEARCH + ' <span>Search docs</span><kbd>/</kbd></button>' +
+      '<div class="hdr-right"><button class="search-btn" id="searchBtn" aria-label="Search docs">' + SEARCH + ' <span>Search docs</span><kbd>/</kbd></button>' +
       '<a class="icon-btn" href="https://github.com/spatelpatidar" aria-label="GitHub" title="GitHub" target="_blank" rel="noopener">' + GH + "</a>" +
-      '<button class="icon-btn" id="themeBtn" aria-label="Toggle theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>' +
+      '<button class="icon-btn" id="themeBtn" aria-label="Toggle theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button></div>' +
     "</header>" +
     '<div class="scrim" id="scrim"></div>' +
     '<div class="layout">' +
