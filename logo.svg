@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <style>
+    /* Light Theme (Default) */
+    .bg { fill: #F8FAFC; stroke: #E2E8F0; }
+    .stem-json { stroke: #c2410c; }
+    .loop-graphql { stroke: #be185d; }
+    .leg-grpc { stroke: #0f766e; }
+    .pill-bg { fill: #FFFFFF; }
+    .pill-json-stroke { stroke: #c2410c; }
+    .pill-json-text { fill: #c2410c; }
+    .pill-graphql-stroke { stroke: #be185d; }
+    .pill-graphql-text { fill: #be185d; }
+    .pill-grpc-stroke { stroke: #0f766e; }
+    .pill-grpc-text { fill: #0f766e; }
+
+    /* Dark Theme */
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #18181B; stroke: transparent; }
+      .stem-json { stroke: #fb923c; }
+      .loop-graphql { stroke: #f472b6; }
+      .leg-grpc { stroke: #2dd4bf; }
+      .pill-bg { fill: #27272A; }
+      .pill-json-stroke { stroke: #fb923c; }
+      .pill-json-text { fill: #fb923c; }
+      .pill-graphql-stroke { stroke: #f472b6; }
+      .pill-graphql-text { fill: #f472b6; }
+      .pill-grpc-stroke { stroke: #2dd4bf; }
+      .pill-grpc-text { fill: #2dd4bf; }
+    }
+  </style>
+
+  <rect class="bg" width="400" height="400" rx="80" stroke-width="2" />
+  <path class="stem-json" d="M 128 280 L 128 80" stroke-width="36" stroke-linecap="round" />
+  <path class="loop-graphql" d="M 128 80 H 215 C 265 80, 265 175, 215 175 H 146" fill="none" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" />
+  <path class="leg-grpc" d="M 146 175 L 240 280" stroke-width="36" stroke-linecap="round" />
+
+  <g transform="translate(62, 322)">
+    <rect class="pill-bg pill-json-stroke" width="70" height="26" rx="6" stroke-width="1.5" />
+    <text class="pill-json-text" x="35" y="17" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" letter-spacing="0.5" text-anchor="middle">JSON</text>
+  </g>
+  <g transform="translate(142, 322)">
+    <rect class="pill-bg pill-graphql-stroke" width="105" height="26" rx="6" stroke-width="1.5" />
+    <text class="pill-graphql-text" x="52.5" y="17" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" letter-spacing="0.5" text-anchor="middle">GraphQL</text>
+  </g>
+  <g transform="translate(257, 322)">
+    <rect class="pill-bg pill-grpc-stroke" width="78" height="26" rx="6" stroke-width="1.5" />
+    <text class="pill-grpc-text" x="39" y="17" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" letter-spacing="0.5" text-anchor="middle">gRPC</text>
+  </g>
+</svg>

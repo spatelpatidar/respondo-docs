@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <style>
+    .bg{fill:#F8FAFC;stroke:#E2E8F0}.j{stroke:#c2410c}.g{stroke:#be185d}.r{stroke:#0f766e}
+    @media (prefers-color-scheme:dark){.bg{fill:#18181B;stroke:transparent}.j{stroke:#fb923c}.g{stroke:#f472b6}.r{stroke:#2dd4bf}}
+  </style>
+  <rect class="bg" width="400" height="400" rx="80" stroke-width="2"/>
+  <g transform="translate(0 30)">
+    <path class="j" d="M 128 280 L 128 80" stroke-width="40" stroke-linecap="round"/>
+    <path class="g" d="M 128 80 H 215 C 265 80, 265 175, 215 175 H 146" fill="none" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="r" d="M 146 175 L 240 280" stroke-width="40" stroke-linecap="round"/>
+  </g>
+</svg>
