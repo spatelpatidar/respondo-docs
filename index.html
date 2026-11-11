@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Respondo Docs: consistent API responses for Rails and Ruby</title>
+<meta name="description" content="Documentation for respondo (JSON), respondo-graphql and respondo-grpc: one response envelope, one helper per situation.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>try{var t=localStorage.getItem("respondo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body data-page="home" data-repo="">
+<article class="page active">
+  <h1>One response shape. Every endpoint.</h1>
+  <p class="lede">Respondo is a family of three standalone Ruby gems that give your controllers and services one expressive helper per situation, and one consistent response envelope, whether you speak JSON, GraphQL or gRPC.</p>
+
+  <div class="code"><pre data-lang="ruby">render_ok(data: user, message: "User fetched")
+render_not_found(message: "User not found")
+render_unprocessable(message: "Validation failed", errors: user.errors)</pre></div>
+
+  <h2 id="gems">Choose your gem</h2>
+  <div class="cards">
+    <a class="card" href="respondo.html" style="--c:var(--json)"><h3>respondo</h3><p>Consistent JSON responses for Rails controllers.</p><p><code>render_ok</code> <code>render_not_found</code></p></a>
+    <a class="card" href="respondo-graphql.html" style="--c:var(--gql)"><h3>respondo-graphql</h3><p>GraphQL-spec responses (<code>data</code>, <code>errors</code>, <code>extensions</code>) for everything outside your schema.</p><p><code>render_graphql_ok</code></p></a>
+    <a class="card" href="respondo-grpc.html" style="--c:var(--grpc)"><h3>respondo-grpc</h3><p>A protobuf envelope with real gRPC status codes and structured errors.</p><p><code>render_grpc_ok</code></p></a>
+  </div>
+
+  <h2 id="install">Install</h2>
+  <p>Each gem is standalone: no dependency on the others, its own namespace and its own configuration. Install one, or all three.</p>
+  <div class="tabs" data-tabs>
+    <div class="tab-list" role="tablist"><button role="tab">Gemfile</button><button role="tab">RubyGems CLI</button><button role="tab">GitHub Packages</button></div>
+    <div class="tab-panel"><div class="code"><pre data-lang="ruby"># Gemfile
+gem "respondo"          # JSON
+gem "respondo-graphql"  # GraphQL
+gem "respondo-grpc"     # gRPC</pre></div></div>
+    <div class="tab-panel" hidden><div class="code"><pre data-lang="bash">gem install respondo
+gem install respondo-graphql
+gem install respondo-grpc</pre></div></div>
+    <div class="tab-panel" hidden>
+      <div class="code"><pre data-lang="ruby"># Gemfile
+source "https://rubygems.pkg.github.com/spatelpatidar" do
+  gem "respondo"
+end</pre></div>
+      <div class="code"><pre data-lang="bash"># one-time auth: a personal access token with read:packages
+bundle config set --global rubygems.pkg.github.com YOUR_GITHUB_USERNAME:YOUR_TOKEN</pre></div>
+    </div>
+  </div>
+  <p>Requires Ruby 2.7+. <code>respondo</code> and <code>respondo-graphql</code> hook into Rails through a Railtie, so there is nothing to <code>include</code>. <code>respondo-grpc</code> has no Rails dependency; it needs <code>grpc</code> and <code>google-protobuf</code>.</p>
+
+  <h2 id="idea">The idea</h2>
+  <p>Three developers, three response shapes, and a frontend full of <code>if (res.data || res.result || res.users)</code>. Respondo removes the argument: every response, success or error, comes from the same helper family and has the same shape, so clients never have to guess.</p>
+  <div class="tbl"><table>
+    <tr><th></th><th>respondo</th><th>respondo-graphql</th><th>respondo-grpc</th></tr>
+    <tr><td>Envelope</td><td><code>success, message, data, errors, meta</code></td><td><code>data, errors, extensions</code></td><td><code>respondo.v1.Response</code></td></tr>
+    <tr><td>Failure signal</td><td>HTTP status</td><td><code>errors[]</code> + HTTP status</td><td>gRPC status + envelope</td></tr>
+    <tr><td>Helper prefix</td><td><code>render_</code></td><td><code>render_graphql_</code></td><td><code>render_grpc_</code></td></tr>
+  </table></div>
+  <div class="pager"><span></span><a href="respondo.html"><small>Next</small>respondo →</a></div>
+</article>
+<script src="shell.js"></script>
+</body>
+</html>
