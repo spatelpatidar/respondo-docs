@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>respondo (JSON) · Respondo Docs</title>
+<meta name="description" content="Install, configure and use respondo: consistent JSON API responses for Rails.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>try{var t=localStorage.getItem("respondo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body data-page="respondo" data-repo="respondo">
+<article class="page active">
+  <h1>respondo <span class="pill" style="background:var(--json)">JSON · v2.2.0</span></h1>
+  <p class="lede">Consistent JSON API responses for Rails, in one line.</p>
+  <div class="badges">
+    <a class="badge" href="https://rubygems.org/gems/respondo" target="_blank" rel="noopener">RubyGems</a>
+    <a class="badge" href="https://github.com/spatelpatidar/respondo" target="_blank" rel="noopener">GitHub</a>
+    <a class="badge" href="https://github.com/spatelpatidar/respondo/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+    <span class="badge">MIT</span><span class="badge">Ruby 2.7+</span>
+  </div>
+
+  <h2 id="install">Install</h2>
+  <div class="code"><pre data-lang="ruby"># Gemfile
+gem "respondo"</pre></div>
+  <div class="code"><pre data-lang="bash">bundle install
+rails generate respondo:install</pre></div>
+  <p>The generator is an interactive wizard that writes <code>config/initializers/respondo.rb</code>. You do not need to <code>include</code> anything in <code>ApplicationController</code>; a Railtie loads the helpers for you.</p>
+
+  <h2 id="quickstart">Your first response</h2>
+  <div class="code"><pre data-lang="ruby">class UsersController &lt; ApplicationController
+  def index
+    render_ok(data: User.all, message: "Users fetched")
+  end
+
+  def create
+    user = User.new(user_params)
+    if user.save
+      render_created(data: user, message: "Account created")
+    else
+      render_unprocessable(message: "Validation failed", errors: user.errors)
+    end
+  end
+
+  def show
+    render_ok(data: User.find(params[:id]), message: "User found")
+  rescue ActiveRecord::RecordNotFound
+    render_not_found(message: "User not found")
+  end
+end</pre></div>
+
+  <h2 id="shape">Response shape</h2>
+  <p>Every response has the same four keys. Error responses add an <code>errors</code> hash.</p>
+  <div class="tbl"><table>
+    <tr><th>Key</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>success</code></td><td>Boolean</td><td><code>true</code> or <code>false</code>, always present</td></tr>
+    <tr><td><code>message</code></td><td>String</td><td>Human-readable description</td></tr>
+    <tr><td><code>data</code></td><td>Object / Array / null</td><td>The payload</td></tr>
+    <tr><td><code>meta</code></td><td>Object</td><td>Timestamp, pagination, optional <code>request_id</code></td></tr>
+    <tr><td><code>errors</code></td><td>Object</td><td>Errors only: <code>{ field: ["message"] }</code></td></tr>
+  </table></div>
+  <div class="tabs" data-tabs>
+    <div class="tab-list" role="tablist"><button role="tab">Success</button><button role="tab">Validation error</button></div>
+    <div class="tab-panel"><div class="code"><pre data-lang="json">{
+  "success": true,
+  "message": "Post published",
+  "data": { "id": 42, "title": "Hello World" },
+  "meta": { "timestamp": "2024-06-15T10:30:00Z" }
+}</pre></div></div>
+    <div class="tab-panel" hidden><div class="code"><pre data-lang="json">{
+  "success": false,
+  "message": "Validation failed",
+  "data": null,
+  "errors": { "email": ["is invalid"], "name": ["can't be blank"] },
+  "meta": { "timestamp": "2024-06-15T10:30:00Z" }
+}</pre></div></div>
+  </div>
+
+  <h2 id="pagination">Pagination</h2>
+  <p>Pass a <code>pagination:</code> hash and it lands in <code>meta.pagination</code> for every endpoint.</p>
+  <div class="code"><pre data-lang="ruby">def index
+  @posts = Post.published.page(params[:page]).per(params[:per_page] || 20)
+
+  render_ok(
+    data:    @posts,
+    message: "Posts fetched",
+    pagination: {
+      current_page: @posts.current_page,
+      next_page:    @posts.next_page,
+      prev_page:    @posts.prev_page,
+      total_pages:  @posts.total_pages,
+      total_count:  @posts.total_count,
+      per_page:     @posts.limit_value
+    }
+  )
+end</pre></div>
+
+  <h2 id="serialization">Serialization</h2>
+  <p>Respondo converts what you pass to <code>data:</code> automatically.</p>
+  <div class="tbl"><table>
+    <tr><th>Input</th><th>Output</th></tr>
+    <tr><td><code>ActiveRecord::Base</code> instance</td><td><code>record.as_json</code></td></tr>
+    <tr><td><code>ActiveRecord::Relation</code></td><td>Array of <code>as_json</code> records</td></tr>
+    <tr><td><code>ActiveModel::Errors</code></td><td><code>{ field: ["message", …] }</code></td></tr>
+    <tr><td><code>Hash</code> / <code>Array</code></td><td>Passed through, values serialized recursively</td></tr>
+    <tr><td><code>Exception</code></td><td><code>{ message: e.message }</code></td></tr>
+    <tr><td>Responds to <code>#as_json</code> / <code>#to_h</code></td><td>Calls it</td></tr>
+    <tr><td>String, Integer, …</td><td>As-is</td></tr>
+  </table></div>
+  <div class="callout warn"><strong>Don't expose raw models</strong>
+    <p><code>record.as_json</code> includes every column, such as <code>password_digest</code>, API tokens and internal flags. Return an allow-listed shape in production.</p></div>
+  <div class="code"><pre data-lang="ruby">render_ok(data: user.as_json(only: %i[id name email]))
+
+# or configure one serializer for the whole app
+config.serializer = ->(obj) { UserBlueprint.render_as_hash(obj) }</pre></div>
+  <p>Set <code>config.strict_serialization = true</code> to make Respondo raise <code>Respondo::UnsafeSerializationError</code> whenever a raw model or relation is passed without a serializer. Without it, a one-time warning is logged per model class.</p>
+
+  <h3 id="serializers">Using your own serializer</h3>
+  <p>Respondo does not replace your serializers. It only wraps the response in the standard shape (<code>success</code>, <code>message</code>, <code>data</code>, <code>meta</code>). Whatever you pass as <code>data:</code> ends up in <code>data</code>, so use whichever style fits your API.</p>
+  <div class="tabs" data-tabs>
+    <div class="tab-list" role="tablist"><button role="tab">Pass records directly</button><button role="tab">Use your serializer</button></div>
+    <div class="tab-panel">
+      <div class="code"><pre data-lang="ruby">def index
+  render_ok(data: User.all, message: "Users fetched")
+end</pre></div>
+      <p>Models and relations are converted with <code>as_json</code>, which includes <strong>every column</strong>. That is fine for quick prototypes; for production prefer a serializer or an allow-list.</p>
+    </div>
+    <div class="tab-panel" hidden>
+      <div class="code"><pre data-lang="ruby">class UsersController &lt; ApplicationController
+  def show
+    user = User.find(params[:id])
+    render_ok(data: UserSerializer.new(user).as_json, message: "User fetched")
+  end
+end
+
+class ProfilesController &lt; ApplicationController
+  def show
+    profile = current_user.profile
+    render_ok(data: ProfileSerializer.new(profile).as_json, message: "Profile fetched")
+  end
+end
+
+class BookingsController &lt; ApplicationController
+  def index
+    bookings = current_user.bookings.page(params[:page]).per(20)
+    data = bookings.map { |b| BookingSerializer.new(b).as_json }
+    render_ok(data: data, message: "Bookings fetched")
+  end
+end</pre></div>
+      <p>Use the serializer you already have for each resource: a <code>UserSerializer</code>, a <code>ProfileSerializer</code>, a <code>BookingSerializer</code>, or Blueprinter / ActiveModelSerializers output. Respondo takes the hash or array you give it and wraps it, so you control exactly which fields are exposed.</p>
+    </div>
+  </div>
+  <p>Prefer to set one serializer for the whole app instead? Use <code>config.serializer</code> (see <a href="#configuration">Configuration</a>). It is optional.</p>
+
+  <h2 id="configuration">Configuration</h2>
+  <p>Run <code>rails generate respondo:install</code> or write the initializer by hand:</p>
+  <div class="code"><pre data-lang="ruby"># config/initializers/respondo.rb
+Respondo.configure do |config|
+  config.default_success_message = "OK"
+  config.default_error_message   = "Something went wrong"
+  config.include_request_id      = true   # adds request_id to every meta
+  config.camelize_keys           = true   # snake_case → camelCase
+  config.default_meta            = { api_version: "v1" }
+  config.strict_serialization    = true   # raise on raw ActiveRecord data (recommended)
+  config.max_collection_size     = 1_000  # raise instead of loading huge collections
+end</pre></div>
+  <div class="tbl"><table>
+    <tr><th>Option</th><th>Default</th><th>Purpose</th></tr>
+    <tr><td><code>default_success_message</code></td><td><code>"Success"</code></td><td>Message when none is passed to a success helper</td></tr>
+    <tr><td><code>default_error_message</code></td><td><code>"An error occurred"</code></td><td>Message when none is passed to an error helper</td></tr>
+    <tr><td><code>include_request_id</code></td><td><code>false</code></td><td>Adds <code>request_id</code> to <code>meta</code></td></tr>
+    <tr><td><code>camelize_keys</code></td><td><code>false</code></td><td>snake_case to camelCase in <code>data</code> and <code>meta</code></td></tr>
+    <tr><td><code>default_meta</code></td><td><code>{}</code></td><td>Merged into every <code>meta</code></td></tr>
+    <tr><td><code>serializer</code></td><td><code>nil</code></td><td>A callable used to serialize <code>data</code></td></tr>
+    <tr><td><code>strict_serialization</code></td><td><code>false</code></td><td>Raise on raw ActiveRecord objects</td></tr>
+    <tr><td><code>max_collection_size</code></td><td><code>nil</code> (no limit)</td><td>Raises <code>CollectionTooLargeError</code>; relations are capped with <code>LIMIT max+1</code></td></tr>
+  </table></div>
+  <p><code>request_id</code> and <code>timestamp</code> are always generated by Respondo; values passed through <code>meta:</code> or <code>default_meta</code> cannot override them.</p>
+
+  <h3 id="camelize">camelCase output</h3>
+  <p>Ideal for Flutter and React Native clients. If two keys collapse to the same camelCase name (<code>user_id</code> and <code>userId</code>), both are left untouched rather than one overwriting the other.</p>
+  <div class="code"><pre data-lang="json">{
+  "success": true,
+  "data": { "firstName": "Alice", "createdAt": "2024-01-01" },
+  "meta": { "totalPages": 4, "currentPage": 1 }
+}</pre></div>
+
+  <h2 id="helpers">HTTP helpers</h2>
+  <p>There is a helper for every HTTP status code. These are the ones you will reach for most.</p>
+  <h3>2xx success</h3>
+  <div class="tbl"><table>
+    <tr><th>Helper</th><th>Status</th><th>Use when</th></tr>
+    <tr><td><code>render_ok</code></td><td>200</td><td>Standard success</td></tr>
+    <tr><td><code>render_created</code></td><td>201</td><td>A POST created a resource</td></tr>
+    <tr><td><code>render_accepted</code></td><td>202</td><td>Async job queued</td></tr>
+    <tr><td><code>render_no_content</code></td><td>200*</td><td>After DELETE</td></tr>
+  </table></div>
+  <p><small>*Rails sends 200 with a JSON body for <code>render_no_content</code> so the response shape stays consistent.</small></p>
+  <div class="code"><pre data-lang="ruby">render_created(data: @order, message: "Order placed")
+render_accepted(data: { job_id: "abc123" }, message: "Export queued")
+render_no_content(message: "Account deleted")</pre></div>
+  <h3>4xx client errors</h3>
+  <div class="tbl"><table>
+    <tr><th>Helper</th><th>Status</th><th>Use when</th></tr>
+    <tr><td><code>render_bad_request</code></td><td>400</td><td>Malformed input</td></tr>
+    <tr><td><code>render_unauthorized</code></td><td>401</td><td>Not logged in / token expired</td></tr>
+    <tr><td><code>render_forbidden</code></td><td>403</td><td>Logged in but not allowed</td></tr>
+    <tr><td><code>render_not_found</code></td><td>404</td><td>Record doesn't exist</td></tr>
+    <tr><td><code>render_conflict</code></td><td>409</td><td>Duplicate, e.g. email taken</td></tr>
+    <tr><td><code>render_unprocessable</code></td><td>422</td><td>Validation errors</td></tr>
+    <tr><td><code>render_too_many_requests</code></td><td>429</td><td>Rate limiting</td></tr>
+  </table></div>
+  <div class="code"><pre data-lang="ruby">render_unauthorized(message: "Token has expired", errors: { token: ["has expired"] })
+render_conflict(message: "Email already registered", errors: { email: ["has already been taken"] })
+render_too_many_requests(message: "Slow down", meta: { retry_after: 60 })</pre></div>
+  <h3>5xx server errors</h3>
+  <div class="code"><pre data-lang="ruby">render_server_error(message: "Something went wrong. Our team has been notified.")
+render_service_unavailable(message: "Down for maintenance", meta: { retry_after: 1800 })
+render_bad_gateway(message: "Payment processor is unreachable")</pre></div>
+
+  <details><summary>Every helper (click to expand)</summary>
+    <p><strong>2xx</strong></p><div class="chips"><code>render_ok</code><code>render_created</code><code>render_accepted</code><code>render_non_authoritative</code><code>render_no_content</code><code>render_reset_content</code><code>render_partial_content</code><code>render_multi_status</code><code>render_already_reported</code><code>render_im_used</code></div>
+    <p><strong>3xx</strong>: pass the target with <code>location:</code>. It is sent as a real <code>Location</code> header and mirrored to <code>meta.redirect_url</code>. Only relative paths and same-host URLs are accepted; anything else raises <code>Respondo::UnsafeRedirectError</code> unless you pass <code>allow_other_host: true</code> (never with user input).</p>
+    <div class="code"><pre data-lang="ruby">render_found(location: "/login")</pre></div>
+    <div class="chips"><code>render_multiple_choices</code><code>render_moved_permanently</code><code>render_found</code><code>render_see_other</code><code>render_not_modified</code><code>render_temporary_redirect</code><code>render_permanent_redirect</code></div>
+    <p><strong>4xx</strong></p><div class="chips"><code>render_bad_request</code><code>render_unauthorized</code><code>render_payment_required</code><code>render_forbidden</code><code>render_not_found</code><code>render_method_not_allowed</code><code>render_not_acceptable</code><code>render_proxy_auth_required</code><code>render_request_timeout</code><code>render_conflict</code><code>render_gone</code><code>render_length_required</code><code>render_precondition_failed</code><code>render_payload_too_large</code><code>render_uri_too_long</code><code>render_unsupported_media_type</code><code>render_range_not_satisfiable</code><code>render_expectation_failed</code><code>render_im_a_teapot</code><code>render_misdirected_request</code><code>render_unprocessable</code><code>render_locked</code><code>render_failed_dependency</code><code>render_too_early</code><code>render_upgrade_required</code><code>render_precondition_required</code><code>render_too_many_requests</code><code>render_request_header_fields_too_large</code><code>render_unavailable_for_legal_reasons</code></div>
+    <p><strong>5xx</strong></p><div class="chips"><code>render_server_error</code><code>render_not_implemented</code><code>render_bad_gateway</code><code>render_service_unavailable</code><code>render_gateway_timeout</code><code>render_http_version_not_supported</code><code>render_variant_also_negotiates</code><code>render_insufficient_storage</code><code>render_loop_detected</code><code>render_not_extended</code><code>render_network_authentication_required</code></div>
+  </details>
+
+  <h2 id="errors">Global error handling</h2>
+  <p>Handle exceptions app-wide from <code>ApplicationController</code>, with no try/rescue in every action.</p>
+  <div class="code"><pre data-lang="ruby">class ApplicationController &lt; ActionController::API
+  rescue_from ActiveRecord::RecordNotFound do |e|
+    Rails.logger.info(e.message)
+    render_not_found(message: "Resource not found")
+  end
+
+  rescue_from ActionController::ParameterMissing do |e|
+    Rails.logger.info(e.message)
+    render_bad_request(message: "Required parameter missing")
+  end
+
+  rescue_from StandardError do |e|
+    Rails.logger.error(e.full_message)
+    render_server_error(message: "An unexpected error occurred")
+  end
+end</pre></div>
+  <div class="callout"><strong>Use fixed messages</strong><p><code>e.message</code> contains model names and lookup keys (<code>Couldn't find User with 'id'=42</code>), which helps attackers enumerate your schema. Log it, don't return it.</p></div>
+
+  <h2 id="security">Security defaults</h2>
+  <p>Since 2.2.0, Respondo is hardened against the issues found in an independent security assessment:</p>
+  <ul>
+    <li><strong>Install generator</strong> validates <code>default_meta</code> keys and backs up an existing initializer to <code>respondo.rb.bak</code> instead of overwriting it.</li>
+    <li><strong>Raw model exposure</strong> is flagged or blocked via <code>strict_serialization</code>.</li>
+    <li><strong><code>meta</code> can't spoof</strong> <code>request_id</code> or <code>timestamp</code>.</li>
+    <li><strong>Redirect helpers</strong> only accept relative or same-host targets.</li>
+    <li><strong>Unbounded collections</strong> can be capped with <code>max_collection_size</code>.</li>
+  </ul>
+  <p>Full details are in the <a href="https://github.com/spatelpatidar/respondo/blob/main/CHANGELOG.md" target="_blank" rel="noopener">changelog</a>.</p>
+
+  <div class="pager"><a href="index.html"><small>Previous</small>← Overview</a><a href="respondo-graphql.html"><small>Next</small>respondo-graphql →</a></div>
+</article>
+<script src="shell.js"></script>
+</body>
+</html>
