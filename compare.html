@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Which gem do I need? · Respondo Docs</title>
+<meta name="description" content="Compare respondo, respondo-graphql and respondo-grpc.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>try{var t=localStorage.getItem("respondo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body data-page="compare" data-repo="">
+<article class="page active">
+  <h1>Which gem do I need?</h1>
+  <p class="lede">Pick by the transport your endpoint speaks. You can mix all three in one app.</p>
+  <h2 id="table">Side by side</h2>
+  <div class="tbl"><table>
+    <tr><th></th><th>respondo</th><th>respondo-graphql</th><th>respondo-grpc</th></tr>
+    <tr><td>Use for</td><td>REST / JSON APIs</td><td>Responses outside the GraphQL schema</td><td>gRPC services</td></tr>
+    <tr><td>Namespace</td><td><code>Respondo</code></td><td><code>RespondoGraphql</code></td><td><code>RespondoGrpc</code></td></tr>
+    <tr><td>Helper prefix</td><td><code>render_</code></td><td><code>render_graphql_</code></td><td><code>render_grpc_</code></td></tr>
+    <tr><td>Envelope</td><td><code>success, message, data, errors, meta</code></td><td><code>data, errors, extensions</code></td><td><code>respondo.v1.Response</code></td></tr>
+    <tr><td>Failure signal</td><td>HTTP status</td><td><code>errors[]</code> + HTTP status</td><td>gRPC status + envelope</td></tr>
+    <tr><td>Rails integration</td><td>Railtie, generator</td><td>Railtie, generator</td><td>Include <code>ServiceHelpers</code></td></tr>
+    <tr><td>Typed payloads</td><td>No</td><td>No</td><td>Yes (<code>Any</code>)</td></tr>
+    <tr><td><code>always_ok</code></td><td>n/a</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Helper count</td><td>All HTTP codes</td><td>2xx plus 40 error helpers</td><td>2xx, 4xx (29), 5xx (11)</td></tr>
+    <tr><td>License</td><td>MIT</td><td>Apache 2.0</td><td>Apache 2.0</td></tr>
+  </table></div>
+  <h2 id="together">Using them together</h2>
+  <div class="code"><pre data-lang="ruby"># Gemfile
+gem "respondo"
+gem "respondo-graphql"
+gem "respondo-grpc"</pre></div>
+  <p>Each gem keeps its own configuration: <code>Respondo.configure</code> does not affect GraphQL responses, and <code>RespondoGraphql.configure</code> does not affect JSON ones. Helper names never collide as long as you use the prefixed names. See <a href="respondo-graphql.html#both">the note on short names</a>.</p>
+  <h2 id="codes">Same codes everywhere</h2>
+  <p>The names and numeric codes match across all three gems, so <code>meta.code</code> / <code>extensions.code</code> means the same thing in every envelope: 200 is OK, 404 is not found, 422 is unprocessable.</p>
+  <div class="pager"><a href="respondo-grpc.html"><small>Previous</small>← respondo-grpc</a><span></span></div>
+</article>
+<script src="shell.js"></script>
+</body>
+</html>
