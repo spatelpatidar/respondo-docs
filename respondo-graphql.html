@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>respondo-graphql · Respondo Docs</title>
+<meta name="description" content="Install, configure and use respondo-graphql: GraphQL-spec responses for Rails controllers.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>try{var t=localStorage.getItem("respondo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body data-page="graphql" data-repo="respondo-graphql">
+<article class="page active">
+  <h1>respondo-graphql <span class="pill" style="background:var(--gql)">GraphQL · v0.2.0</span></h1>
+  <p class="lede">Consistent GraphQL-spec responses for Rails controllers, in one line.</p>
+  <div class="badges">
+    <a class="badge" href="https://rubygems.org/gems/respondo-graphql" target="_blank" rel="noopener">RubyGems</a>
+    <a class="badge" href="https://github.com/spatelpatidar/respondo-graphql" target="_blank" rel="noopener">GitHub</a>
+    <a class="badge" href="https://github.com/spatelpatidar/respondo-graphql/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+    <span class="badge">Apache 2.0</span><span class="badge">Ruby 2.7+</span>
+  </div>
+  <p>The GraphQL sibling of <a href="respondo.html">respondo</a>. It is standalone: no dependency on <code>respondo</code>, its own namespace (<code>RespondoGraphql</code>), config and generator. Responses always use the GraphQL shape: <code>data</code>, <code>errors</code>, <code>extensions</code>.</p>
+
+  <h2 id="when">When to use it</h2>
+  <p>Your GraphQL schema already produces valid responses for queries and mutations. Use this gem for everything your controller answers <em>outside</em> the schema: authentication failures, rate limits, malformed requests, and REST-style endpoints that speak GraphQL-shaped JSON, so those look the same as the rest.</p>
+
+  <h2 id="install">Install</h2>
+  <div class="code"><pre data-lang="ruby"># Gemfile
+gem "respondo-graphql"</pre></div>
+  <div class="code"><pre data-lang="bash">bundle install
+rails generate respondo_graphql:install</pre></div>
+  <p>The Railtie includes the helpers into <code>ActionController::Base</code> and <code>ActionController::API</code>. No <code>include</code> needed.</p>
+
+  <h2 id="usage">Usage</h2>
+  <div class="code"><pre data-lang="ruby">class GraphqlController &lt; ApplicationController
+  def show
+    user = User.find_by(id: params[:id])
+    return render_graphql_not_found(message: "User not found") unless user
+
+    render_graphql_ok(data: { user: user }, message: "User fetched")
+  end
+
+  def create
+    user = User.new(user_params)
+    if user.save
+      render_graphql_created(data: { user: user }, message: "Account created")
+    else
+      render_graphql_unprocessable(message: "Validation failed", errors: user.errors)
+    end
+  end
+end</pre></div>
+
+  <h2 id="shape">Response shape</h2>
+  <div class="tabs" data-tabs>
+    <div class="tab-list" role="tablist"><button role="tab">Success</button><button role="tab">Failure</button></div>
+    <div class="tab-panel"><div class="code"><pre data-lang="json">{
+  "data": { "user": { "id": 1 } },
+  "extensions": {
+    "message": "User fetched",
+    "timestamp": "2026-10-04T10:30:00Z",
+    "code": 200,
+    "status": "ok"
+  }
+}</pre></div></div>
+    <div class="tab-panel" hidden><div class="code"><pre data-lang="json">{
+  "errors": [
+    { "message": "Validation failed",
+      "extensions": { "code": "UNPROCESSABLE_CONTENT", "http": { "status": 422 } } },
+    { "message": "email is invalid",
+      "extensions": { "code": "UNPROCESSABLE_CONTENT", "http": { "status": 422 }, "field": "email" } }
+  ],
+  "data": null,
+  "extensions": { "message": "Validation failed", "timestamp": "2026-10-04T10:30:00Z", "code": 422, "status": "unprocessable_content" }
+}</pre></div></div>
+  </div>
+  <p>On failure <code>data</code> is <code>null</code> and <code>errors[0]</code> is always a summary carrying your message. Field-level errors follow, one entry per message.</p>
+  <div class="tbl"><table>
+    <tr><th>You pass</th><th>Where it ends up</th></tr>
+    <tr><td><code>data:</code></td><td><code>data</code>, always a map or <code>null</code></td></tr>
+    <tr><td><code>message:</code></td><td><code>extensions.message</code>, and <code>errors[0].message</code> on failure</td></tr>
+    <tr><td><code>meta:</code> / <code>pagination:</code></td><td><code>extensions</code></td></tr>
+    <tr><td><code>errors: { field: [...] }</code></td><td>One <code>errors[]</code> entry per message, tagged <code>extensions.field</code></td></tr>
+    <tr><td>success vs. failure</td><td>Presence of the <code>errors</code> array</td></tr>
+  </table></div>
+  <div class="callout note"><strong>Array and scalar payloads</strong><p>GraphQL requires <code>data</code> to be a map, so an Array or scalar is wrapped as <code>{ "result": [...] }</code>. Rename the wrapper with <code>config.data_key</code>.</p></div>
+
+  <h2 id="helpers">Helpers</h2>
+  <p>Same helpers, signatures and statuses as <code>respondo</code>, with a <code>graphql_</code> infix: <code>render_ok</code> becomes <code>render_graphql_ok</code>.</p>
+  <div class="tbl"><table>
+    <tr><th>Group</th><th>Helpers</th><th>Arguments</th></tr>
+    <tr><td>2xx with payload</td><td><code>render_graphql_ok</code> <code>_created</code> <code>_accepted</code> <code>_non_authoritative</code> <code>_partial_content</code> <code>_multi_status</code> <code>_already_reported</code> <code>_im_used</code></td><td><code>data:</code> <code>message:</code> <code>meta:</code> <code>pagination:</code></td></tr>
+    <tr><td>2xx no payload</td><td><code>render_graphql_no_content</code> <code>render_graphql_reset_content</code></td><td><code>message:</code> <code>meta:</code> <code>pagination:</code></td></tr>
+    <tr><td>4xx / 5xx</td><td><code>render_graphql_bad_request</code> <code>_unauthorized</code> <code>_forbidden</code> <code>_not_found</code> <code>_conflict</code> <code>_unprocessable</code> <code>_too_many_requests</code> <code>_server_error</code> <code>_service_unavailable</code> … (40 in total)</td><td><code>message:</code> <code>errors:</code> <code>meta:</code></td></tr>
+  </table></div>
+  <div class="callout warn"><strong>204 and 205 have no body</strong><p>HTTP forbids a body on <code>204 No Content</code> and <code>205 Reset Content</code>, so <code>render_graphql_no_content</code> and <code>render_graphql_reset_content</code> reach the client empty. Use <code>render_graphql_ok</code> when the client needs the message, or set <code>config.always_ok = true</code>.</p></div>
+  <p>1xx and 3xx helpers are left out on purpose: they are transport-level and have no meaning in a GraphQL response. The full list is in <code>RespondoGraphql::ControllerHelpers::SUCCESS_HELPERS</code> and <code>ERROR_HELPERS</code>.</p>
+
+  <h2 id="configuration">Configuration</h2>
+  <div class="code"><pre data-lang="ruby"># config/initializers/respondo_graphql.rb  (written by the generator)
+RespondoGraphql.configure do |config|
+  config.default_success_message = "Success"
+  config.default_error_message   = "An error occurred"
+  config.include_request_id      = false   # adds request_id to extensions
+  config.camelize_keys           = false   # created_at → createdAt
+  config.always_ok               = false   # see below
+  config.data_key                = :result # wrapper for Array / scalar data
+  config.default_meta            = { api_version: "v1" }
+  config.serializer              = ->(obj) { MySerializer.new(obj).as_json }
+end</pre></div>
+  <h3 id="always-ok">always_ok</h3>
+  <p>Many GraphQL clients, Apollo among them, treat non-2xx responses as network failures. Set <code>config.always_ok = true</code> to send every response with HTTP 200 and let the <code>errors</code> array carry the failure. The default (<code>false</code>) keeps each helper's own status, such as 404 for <code>render_graphql_not_found</code>.</p>
+
+  <h2 id="both">Using it with respondo</h2>
+  <p>Both gems can live in one project. Every method this gem defines carries the <code>render_graphql_</code> prefix, so nothing overlaps, and each gem keeps its own configuration.</p>
+  <div class="code"><pre data-lang="ruby">class ReportsController &lt; ApplicationController
+  def show
+    render_ok(data: @report)            # JSON    (respondo)
+  end
+end
+
+class GraphqlController &lt; ApplicationController
+  def execute
+    render_graphql_ok(data: @result)    # GraphQL (respondo-graphql)
+  end
+end</pre></div>
+  <div class="tbl"><table>
+    <tr><th>Your project</th><th><code>render_graphql_ok</code></th><th><code>render_ok</code></th></tr>
+    <tr><td>only respondo-graphql</td><td>GraphQL</td><td>GraphQL (short names included for you)</td></tr>
+    <tr><td>respondo-graphql <strong>and</strong> respondo</td><td>GraphQL</td><td>respondo's JSON, so use <code>render_graphql_*</code></td></tr>
+  </table></div>
+  <p>The gem checks whether <code>respondo</code> is loaded when Rails boots; there is no setting for it. To get <code>render_ok</code> as GraphQL in one specific controller of a project that also has <code>respondo</code>, opt in explicitly:</p>
+  <div class="code"><pre data-lang="ruby">class GraphqlController &lt; ApplicationController
+  include RespondoGraphql::ShortHelpers   # explicit, per controller
+
+  def execute
+    render_ok(data: @result)              # = render_graphql_ok
+  end
+end</pre></div>
+  <ul>
+    <li>It is never included automatically next to <code>respondo</code>.</li>
+    <li>A warning is printed at class load if the JSON helpers are visible, so the switch is never silent.</li>
+    <li>Include it <strong>after</strong> the controller already has the JSON helpers. If you include <code>Respondo::ControllerHelpers</code> afterwards in the same class, <code>render_ok</code> is JSON again.</li>
+  </ul>
+
+  <div class="pager"><a href="respondo.html"><small>Previous</small>← respondo</a><a href="respondo-grpc.html"><small>Next</small>respondo-grpc →</a></div>
+</article>
+<script src="shell.js"></script>
+</body>
+</html>
