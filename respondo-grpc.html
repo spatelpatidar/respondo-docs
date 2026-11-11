@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>respondo-grpc · Respondo Docs</title>
+<meta name="description" content="Install, configure and use respondo-grpc: response envelopes and real status codes for gRPC services.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>try{var t=localStorage.getItem("respondo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body data-page="grpc" data-repo="respondo-grpc">
+<article class="page active">
+  <h1>respondo-grpc <span class="pill" style="background:var(--grpc)">gRPC · v1.0.0</span></h1>
+  <p class="lede">Consistent response envelopes for gRPC services: real status codes, structured errors, one line per reply.</p>
+  <div class="badges">
+    <a class="badge" href="https://rubygems.org/gems/respondo-grpc" target="_blank" rel="noopener">RubyGems</a>
+    <a class="badge" href="https://github.com/spatelpatidar/respondo-grpc" target="_blank" rel="noopener">GitHub</a>
+    <a class="badge" href="https://github.com/spatelpatidar/respondo-grpc/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+    <span class="badge">Apache 2.0</span><span class="badge">Ruby 2.7+</span>
+  </div>
+  <p>A standalone gem with its own namespace (<code>RespondoGrpc</code>), config and protobuf message. The helper names and numeric codes match the other two gems; what changes is the transport. It depends on <code>grpc</code> (≥ 1.60) and <code>google-protobuf</code> (≥ 3.25).</p>
+
+  <h2 id="install">Install</h2>
+  <div class="code"><pre data-lang="ruby"># Gemfile
+gem "respondo-grpc"</pre></div>
+  <div class="code"><pre data-lang="bash">bundle install</pre></div>
+
+  <h2 id="proto">Use the envelope in your .proto</h2>
+  <p>The gem ships <code>proto/respondo/v1/response.proto</code>. Import it and return it from any rpc:</p>
+  <div class="code"><pre data-lang="proto">syntax = "proto3";
+package example.users.v1;
+
+import "respondo/v1/response.proto";
+
+service UserService {
+  rpc GetUser(GetUserRequest) returns (respondo.v1.Response);
+}</pre></div>
+  <p>Compile your protos with the gem's <code>proto/</code> directory on the include path:</p>
+  <div class="code"><pre data-lang="bash">GEM_PROTO="$(bundle exec ruby -e 'puts File.join(Gem.loaded_specs["respondo-grpc"].full_gem_path, "proto")')"
+grpc_tools_ruby_protoc -I proto -I "$GEM_PROTO" --ruby_out=gen --grpc_out=gen proto/users/v1/users.proto</pre></div>
+  <p>The compiled <code>Respondo::V1::Response</code> class comes with the gem; you never compile it yourself.</p>
+
+  <h2 id="usage">Usage</h2>
+  <div class="code"><pre data-lang="ruby">class UserService &lt; Example::Users::V1::UserService::Service
+  include RespondoGrpc::ServiceHelpers
+
+  def get_user(request, call)
+    user = User.find_by(id: request.id)
+    return render_grpc_not_found(message: "User not found", call: call) unless user
+
+    render_grpc_ok(data: user, message: "User fetched", call: call)
+  end
+
+  def create_user(request, call)
+    user = User.new(name: request.name, email: request.email)
+    if user.save
+      render_grpc_created(data: user, message: "Account created", call: call)
+    else
+      render_grpc_unprocessable(message: "Validation failed", errors: user.errors, call: call)
+    end
+  end
+end</pre></div>
+  <ul>
+    <li><strong>Success helpers return</strong> the <code>Respondo::V1::Response</code>. Make the call the last expression of the rpc.</li>
+    <li><strong>Error helpers raise</strong> <code>GRPC::BadStatus</code> with the mapped gRPC status (<code>NOT_FOUND</code>, <code>INVALID_ARGUMENT</code>, …). The message is the status detail and the whole envelope rides in the <code>respondo-response-bin</code> trailing metadata.</li>
+    <li><strong><code>call:</code> is optional.</strong> Pass the rpc's second argument to let <code>include_request_id</code> copy the client's <code>x-request-id</code> into <code>meta</code>.</li>
+  </ul>
+
+  <h2 id="shape">What the client receives</h2>
+  <p>Shown as JSON for readability.</p>
+  <div class="tabs" data-tabs>
+    <div class="tab-list" role="tablist"><button role="tab">Success</button><button role="tab">Failure</button></div>
+    <div class="tab-panel"><div class="code"><pre data-lang="json">{
+  "success": true,
+  "message": "User fetched",
+  "data": { "id": 1 },
+  "meta": { "timestamp": "2026-10-26T10:30:00Z", "code": 200, "status": "ok" }
+}</pre></div></div>
+    <div class="tab-panel" hidden><p>The call finishes with <code>INVALID_ARGUMENT</code> (3) and this envelope in its trailers:</p><div class="code"><pre data-lang="json">{
+  "message": "Validation failed",
+  "errors": [{ "field": "email", "messages": ["is invalid"] }],
+  "meta": { "timestamp": "2026-10-26T10:30:00Z", "code": 422, "status": "unprocessable_content", "grpcCode": 3 }
+}</pre></div></div>
+  </div>
+  <h3>What goes where</h3>
+  <div class="tbl"><table>
+    <tr><th>You pass</th><th>Where it ends up</th></tr>
+    <tr><td><code>data:</code> hash / array / scalar / ActiveRecord</td><td><code>Response.data</code> (<code>google.protobuf.Value</code>)</td></tr>
+    <tr><td><code>data:</code> a <strong>protobuf message</strong></td><td><code>Response.payload</code> (<code>google.protobuf.Any</code>), so the client can unpack a real class</td></tr>
+    <tr><td><code>message:</code></td><td><code>Response.message</code>, and the gRPC status detail on failure</td></tr>
+    <tr><td><code>errors:</code> hash or <code>ActiveModel::Errors</code></td><td><code>Response.errors[]</code> (<code>field</code>, <code>messages</code>)</td></tr>
+    <tr><td><code>pagination:</code> <code>current_page per_page total_pages total_count next_page prev_page</code></td><td><code>Response.meta.pagination</code> (other keys are ignored)</td></tr>
+    <tr><td><code>meta:</code> and <code>default_meta</code></td><td><code>Response.meta.extra</code> (<code>google.protobuf.Struct</code>)</td></tr>
+  </table></div>
+  <div class="callout note"><strong>Numbers come back as floats</strong><p><code>google.protobuf.Value</code> has a single number type, so numbers inside <code>data</code> arrive as <code>1.0</code>. Use a typed payload when exact integers matter.</p></div>
+
+  <h2 id="client">Reading replies on the client</h2>
+  <div class="code"><pre data-lang="ruby">stub = Example::Users::V1::UserService::Stub.new("localhost:50051", :this_channel_is_insecure)
+
+begin
+  response = stub.get_user(Example::Users::V1::GetUserRequest.new(id: 42),
+                           metadata: { "x-request-id" => "abc-123" })
+
+  user = response.payload.unpack(Example::Users::V1::User)    # typed payload
+  RespondoGrpc::ClientHelpers.to_h(response)[:data]           # JSON-like data as plain Ruby
+rescue GRPC::BadStatus => e
+  failure = RespondoGrpc::ClientHelpers.error_hash(e)
+  failure[:message]            # => "User not found"
+  failure[:errors]             # => { email: ["is invalid"] }
+  failure[:meta][:grpc_code]   # => 5
+end</pre></div>
+  <p><code>error_hash</code> falls back to the status details when the server sent no envelope, so there is always a message to show.</p>
+
+  <h2 id="helpers">Helpers</h2>
+  <p>Every helper takes <code>message:</code>, <code>meta:</code> and <code>call:</code>. Success helpers also take <code>data:</code> and <code>pagination:</code>; error helpers take <code>errors:</code>.</p>
+  <div class="tbl"><table>
+    <tr><th>Kind</th><th>Helpers</th></tr>
+    <tr><td>Success (2xx)</td><td><code>render_grpc_ok</code> <code>_created</code> <code>_accepted</code> <code>_non_authoritative</code> <code>_partial_content</code> <code>_multi_status</code> <code>_already_reported</code> <code>_im_used</code>; without <code>data:</code>: <code>_no_content</code> <code>_reset_content</code></td></tr>
+    <tr><td>Client errors (4xx)</td><td><code>render_grpc_bad_request</code> <code>_unauthorized</code> <code>_forbidden</code> <code>_not_found</code> <code>_conflict</code> <code>_gone</code> <code>_unprocessable</code> <code>_too_many_requests</code> … (all 29)</td></tr>
+    <tr><td>Server errors (5xx)</td><td><code>render_grpc_server_error</code> <code>_not_implemented</code> <code>_bad_gateway</code> <code>_service_unavailable</code> <code>_gateway_timeout</code> … (all 11)</td></tr>
+  </table></div>
+  <p>1xx and 3xx helpers are not provided: they are HTTP transport concepts with no meaning in gRPC. Prefer shorter names? <code>include RespondoGrpc::ShortHelpers</code> gives you <code>render_ok</code>, <code>render_not_found</code>, … as aliases. They are never mixed in automatically, because those are the names the JSON gem uses.</p>
+
+  <h3 id="status-map">HTTP code → gRPC status</h3>
+  <div class="tbl"><table>
+    <tr><th>HTTP-style code</th><th>gRPC status</th></tr>
+    <tr><td>400, 406, 411, 414, 415, 422</td><td><code>INVALID_ARGUMENT</code> (3)</td></tr>
+    <tr><td>401, 407, 511</td><td><code>UNAUTHENTICATED</code> (16)</td></tr>
+    <tr><td>403, 451</td><td><code>PERMISSION_DENIED</code> (7)</td></tr>
+    <tr><td>404, 410</td><td><code>NOT_FOUND</code> (5)</td></tr>
+    <tr><td>408, 504</td><td><code>DEADLINE_EXCEEDED</code> (4)</td></tr>
+    <tr><td>409</td><td><code>ALREADY_EXISTS</code> (6)</td></tr>
+    <tr><td>402, 412, 417, 421, 423–426, 428</td><td><code>FAILED_PRECONDITION</code> (9)</td></tr>
+    <tr><td>413, 429, 431, 507</td><td><code>RESOURCE_EXHAUSTED</code> (8)</td></tr>
+    <tr><td>416</td><td><code>OUT_OF_RANGE</code> (11)</td></tr>
+    <tr><td>405, 501, 505, 510</td><td><code>UNIMPLEMENTED</code> (12)</td></tr>
+    <tr><td>500, 506, 508</td><td><code>INTERNAL</code> (13)</td></tr>
+    <tr><td>502, 503</td><td><code>UNAVAILABLE</code> (14)</td></tr>
+    <tr><td>418</td><td><code>UNKNOWN</code> (2)</td></tr>
+  </table></div>
+  <p>Disagree with one? <code>config.status_map = { 409 => :aborted }</code></p>
+
+  <h2 id="configuration">Configuration</h2>
+  <div class="code"><pre data-lang="ruby">RespondoGrpc.configure do |config|
+  config.default_success_message = "Success"
+  config.default_error_message   = "An error occurred"
+  config.include_request_id      = false          # copy x-request-id into meta.request_id
+  config.request_id_key          = "x-request-id" # metadata key to read it from
+  config.always_ok               = false          # see below
+  config.status_map              = {}             # e.g. { 409 => :aborted }
+  config.default_meta            = { api_version: "v1" }
+  config.serializer              = ->(obj) { MySerializer.new(obj).as_json }
+end</pre></div>
+  <h3 id="always-ok">always_ok</h3>
+  <p>By default failures finish the call with a real gRPC status code, which is what interceptors, retries, load balancers and monitoring understand. Set <code>config.always_ok = true</code> to answer failures as a normal reply (status <code>OK</code>) with <code>success: false</code> and <code>meta.grpc_code</code> in the message, if your clients only look at the message body.</p>
+
+  <h2 id="envelope">The protobuf message</h2>
+  <div class="code"><pre data-lang="proto">message Response {
+  bool success = 1;
+  string message = 2;
+  google.protobuf.Value data = 3;      // JSON-like payload
+  google.protobuf.Any payload = 4;     // typed payload (protobuf message)
+  repeated FieldError errors = 5;
+  Meta meta = 6;
+}
+
+message FieldError { string field = 1; repeated string messages = 2; }
+
+message Meta {
+  string request_id = 1;
+  string timestamp = 2;                // ISO 8601, UTC
+  int32 code = 3;                      // HTTP-style code (200, 404, 422, …)
+  string status = 4;                   // "not_found"
+  int32 grpc_code = 5;                 // always set on failures
+  string error_code = 6;               // custom, e.g. "AUTH_EXPIRED"
+  Pagination pagination = 7;
+  google.protobuf.Struct extra = 8;
+}
+
+message Pagination {
+  int32 current_page = 1;  int32 per_page = 2;
+  int32 total_pages = 3;   int32 total_count = 4;
+  optional int32 next_page = 5;  optional int32 prev_page = 6;
+}</pre></div>
+
+  <div class="pager"><a href="respondo-graphql.html"><small>Previous</small>← respondo-graphql</a><a href="compare.html"><small>Next</small>Compare →</a></div>
+</article>
+<script src="shell.js"></script>
+</body>
+</html>
