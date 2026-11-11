@@ -8,8 +8,12 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preload" href="shell.js" as="script">
 <link rel="stylesheet" href="styles.css">
-<script>try{var t=localStorage.getItem("respondo-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<style>html.shell-pending body>article{opacity:0}</style>
+<noscript><style>html.shell-pending body>article{opacity:1}</style></noscript>
+<script>document.documentElement.classList.add("shell-pending");setTimeout(function(){document.documentElement.classList.remove("shell-pending")},3000)</script>
+<script>try{var t=localStorage.getItem("respondo-theme");if(t){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}</script>
 </head>
 <body data-page="compare" data-repo="">
 <article class="page active">
