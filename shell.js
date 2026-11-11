@@ -28,10 +28,8 @@
   var footer = repo
     ? 'Respondo is open source. <a href="' + GHU + repo + '"' + T + '>GitHub</a> · <a href="https://rubygems.org/gems/' + repo + '"' + T + '>RubyGems</a> · Found a gap? Open an issue: <a href="' + GHU + repo + '/issues"' + T + '>' + repo + '</a>' +
       '<br>If <strong>' + repo + '</strong> is useful, give it a star ' + STAR + ' on <a href="' + GHU + repo + '"' + T + '>GitHub</a>.'
-    : 'Respondo is open source. <a href="' + GHU.slice(0, -1) + '"' + T + '>GitHub</a> · <a href="https://rubygems.org/profiles/spatelpatidar"' + T + '>RubyGems</a> · Found a gap? Open an issue: ' +
-      ["respondo", "respondo-graphql", "respondo-grpc"].map(function (r) { return '<a href="' + GHU + r + '/issues"' + T + '>' + r + "</a>"; }).join(" · ") +
-      '<br>If Respondo is useful, give the repos a star ' + STAR + ' on GitHub: ' +
-      ["respondo", "respondo-graphql", "respondo-grpc"].map(function (r) { return '<a href="' + GHU + r + '"' + T + '>' + r + "</a>"; }).join(" · ") + '.';
+    : 'Respondo is open source. <a href="' + GHU.slice(0, -1) + '"' + T + '>GitHub</a> · <a href="https://rubygems.org/profiles/spatelpatidar"' + T + '>RubyGems</a>' +
+      '<br>If Respondo is useful, give it a star ' + STAR + ' on <a href="' + GHU.slice(0, -1) + '"' + T + '>GitHub</a>.';
 
   var shell = document.createElement("div");
   shell.innerHTML =
@@ -47,7 +45,7 @@
       "</nav>" +
       '<div class="hdr-right"><button class="search-btn" id="searchBtn" aria-label="Search docs">' + SEARCH + ' <span>Search docs</span><kbd>/</kbd></button>' +
       '<a class="icon-btn" href="https://github.com/spatelpatidar" aria-label="GitHub" title="GitHub" target="_blank" rel="noopener">' + GH + "</a>" +
-      '<button class="icon-btn" id="themeBtn" aria-label="Toggle theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button></div>' +
+      '<button class="icon-btn" id="themeBtn" aria-label="Toggle theme"><svg class="theme-ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18z" fill="var(--ic-cur)"/><path d="M12 3a9 9 0 0 1 0 18z" fill="var(--ic-oth)"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button></div>' +
     "</header>" +
     '<div class="scrim" id="scrim"></div>' +
     '<div class="layout">' +
@@ -70,7 +68,16 @@
   var foot = document.createElement("footer"); foot.innerHTML = footer; main.appendChild(foot);
   while (shell.firstChild) document.body.insertBefore(shell.firstChild, $("script[src='shell.js']"));
 
+  document.documentElement.classList.remove("shell-pending"); // header, sidebar and content now appear together
   var toc = $("#toc"), modal = $("#modal");
+  (function () {
+    var h = $(".header"), seen = false;
+    try { seen = sessionStorage.getItem("respondo-hdr") === "1"; sessionStorage.setItem("respondo-hdr", "1"); } catch (e) {}
+    if (seen) h.classList.add("no-anim");
+    // turn the glass effect on only after the first frames have been painted
+    var on = function () { requestAnimationFrame(function () { requestAnimationFrame(function () { h.classList.add("glass"); }); }); };
+    if (document.readyState === "complete") on(); else window.addEventListener("load", on);
+  })();
 
   /* ---------- syntax highlighter ---------- */
   function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
@@ -139,12 +146,63 @@
   }
   if (location.hash && document.getElementById(location.hash.slice(1))) document.getElementById(location.hash.slice(1)).scrollIntoView();
 
+
+  /* ---------- scroll reveal ---------- */
+  (function () {
+    var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || !("IntersectionObserver" in window)) return;
+    document.documentElement.classList.add("js");
+    var sel = "h1,.lede,.badges,h2,h3,.code,.tbl,.cards .card,.callout,details,.tabs,.pager,article>p,article>ul";
+    var els = $$(sel, article).filter(function (el) {
+      var inTabs = el.closest(".tabs") && !el.classList.contains("tabs");
+      var inDetails = el.closest("details") && el.tagName !== "DETAILS";
+      return !inTabs && !inDetails;
+    });
+    var io2 = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io2.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -6% 0px", threshold: 0.05 });
+    els.forEach(function (el) {
+      el.classList.add("reveal");
+      if (el.matches(".cards .card")) el.style.transitionDelay = ($$(".card", el.parentNode).indexOf(el) * 90) + "ms";
+      io2.observe(el);
+    });
+  })();
+
   /* ---------- theme + mobile nav ---------- */
-  $("#themeBtn").addEventListener("click", function () {
-    var root = document.documentElement;
+  function label() {
+    var root = document.documentElement, b = $("#themeBtn");
     var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-    root.dataset.theme = dark ? "light" : "dark";
-    try { localStorage.setItem("respondo-theme", root.dataset.theme); } catch (e) {}
+    var t = "Switch to " + (dark ? "light" : "dark") + " theme";
+    b.setAttribute("aria-label", t); b.title = t;
+  }
+  label();
+  $("#themeBtn").addEventListener("click", function () {
+    var root = document.documentElement, btn = this;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    var apply = function () {
+      root.dataset.theme = next; root.style.colorScheme = next; label();
+      try { localStorage.setItem("respondo-theme", next); } catch (e) {}
+    };
+    btn.classList.remove("spin"); void btn.offsetWidth; btn.classList.add("spin");
+    var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { apply(); return; }
+    if (!document.startViewTransition) {
+      root.classList.add("theme-fade"); apply();
+      setTimeout(function () { root.classList.remove("theme-fade"); }, 500);
+      return;
+    }
+    var r = btn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    var end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    root.classList.add("theme-vt");
+    var t = document.startViewTransition(apply);
+    t.ready.then(function () {
+      root.animate(
+        { clipPath: ["circle(0px at " + x + "px " + y + "px)", "circle(" + end + "px at " + x + "px " + y + "px)"] },
+        { duration: 700, easing: "cubic-bezier(.4,0,.2,1)", pseudoElement: "::view-transition-new(root)" }
+      );
+    }).catch(function () {});
+    t.finished.finally(function () { root.classList.remove("theme-vt"); });
   });
   $("#menuBtn").addEventListener("click", function () { document.body.classList.toggle("nav-open"); });
   $("#scrim").addEventListener("click", function () { document.body.classList.remove("nav-open"); });
