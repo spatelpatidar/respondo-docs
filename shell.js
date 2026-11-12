@@ -79,6 +79,43 @@
     if (document.readyState === "complete") on(); else window.addEventListener("load", on);
   })();
 
+
+  /* ---------- toast + clipboard ---------- */
+  var TOAST_ICONS = {
+    success: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+    error: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+  };
+  function toast(message, type, ms) {
+    type = TOAST_ICONS[type] ? type : "success";
+    var box = $("#toasts");
+    if (!box) {
+      box = document.createElement("div"); box.id = "toasts";
+      box.setAttribute("role", "status"); box.setAttribute("aria-live", "polite");
+      document.body.appendChild(box);
+    }
+    while (box.children.length >= 3) box.removeChild(box.firstChild);       // keep the stack short
+    var t = document.createElement("div"); t.className = "toast toast-" + type;
+    t.innerHTML = TOAST_ICONS[type] + "<span></span>"; t.lastChild.textContent = message;
+    box.appendChild(t);
+    var timer = setTimeout(close, ms || 2200);
+    function close() { clearTimeout(timer); t.classList.add("out"); setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 260); }
+    t.addEventListener("click", close);
+  }
+  function legacyCopy(text) {
+    var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:-1000px;opacity:0"; document.body.appendChild(ta); ta.select();
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta); return ok;
+  }
+  function copyText(text) {      // resolves true / false; also works on http and file://
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+  window.respondoToast = toast;
+
   /* ---------- syntax highlighter ---------- */
   function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
   var RULES = {
@@ -109,8 +146,12 @@
     var bar = document.createElement("div"); bar.className = "bar"; bar.innerHTML = "<span>" + lang + "</span>";
     var btn = document.createElement("button"); btn.type = "button"; btn.textContent = "Copy";
     btn.addEventListener("click", function () {
-      var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy"; }, 1400); };
-      if (navigator.clipboard) navigator.clipboard.writeText(raw).then(done, done); else done();
+      copyText(raw).then(function (ok) {
+        if (ok) {
+          btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy"; }, 1400);
+          toast("Code copied to clipboard");
+        } else toast("Couldn't copy. Select the code and press Ctrl+C", "error", 3200);
+      });
     });
     bar.appendChild(btn); box.insertBefore(bar, pre);
     pre.innerHTML = highlight(raw, lang); pre.setAttribute("tabindex", "0");
@@ -128,7 +169,7 @@
   });
 
   /* ---------- heading ids + "on this page" ---------- */
-  var hs = $$("h2,h3", article);
+  var hs = article.classList.contains("nf") ? [] : $$("h2,h3", article);   // the 404 page has no sections
   hs.forEach(function (h) { if (!h.id) h.id = h.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); });
   toc.innerHTML = "<h4>On this page</h4>";
   hs.forEach(function (h) {
@@ -156,7 +197,8 @@
     var els = $$(sel, article).filter(function (el) {
       var inTabs = el.closest(".tabs") && !el.classList.contains("tabs");
       var inDetails = el.closest("details") && el.tagName !== "DETAILS";
-      return !inTabs && !inDetails;
+      var inCard = el.closest(".card") && !el.classList.contains("card");
+      return !inTabs && !inDetails && !inCard;
     });
     var io2 = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io2.unobserve(e.target); } });
@@ -167,6 +209,20 @@
       io2.observe(el);
     });
   })();
+
+
+  /* ---------- copy-link buttons on headings ---------- */
+  hs.forEach(function (h) {
+    var b = document.createElement("button"); b.type = "button"; b.className = "anchor";
+    b.setAttribute("aria-label", "Copy link to “" + h.textContent.trim() + "”");
+    b.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.1 0l-3 3A5 5 0 0 0 11 21.1l1.7-1.7"/></svg>';
+    b.addEventListener("click", function () {
+      var url = location.href.split("#")[0] + "#" + h.id;
+      try { history.replaceState(null, "", "#" + h.id); } catch (e) {}
+      copyText(url).then(function (ok) { ok ? toast("Link to this section copied") : toast("Couldn't copy the link", "error"); });
+    });
+    h.appendChild(b);
+  });
 
   /* ---------- theme + mobile nav ---------- */
   function label() {
@@ -184,11 +240,11 @@
       root.dataset.theme = next; root.style.colorScheme = next; label();
       try { localStorage.setItem("respondo-theme", next); } catch (e) {}
     };
-    btn.classList.remove("spin"); void btn.offsetWidth; btn.classList.add("spin");
+    var announce = function () { toast("Switched to " + next + " theme", "info"); };
     var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { apply(); return; }
+    if (reduce) { apply(); announce(); return; }
     if (!document.startViewTransition) {
-      root.classList.add("theme-fade"); apply();
+      root.classList.add("theme-fade"); apply(); announce();
       setTimeout(function () { root.classList.remove("theme-fade"); }, 500);
       return;
     }
@@ -202,7 +258,7 @@
         { duration: 700, easing: "cubic-bezier(.4,0,.2,1)", pseudoElement: "::view-transition-new(root)" }
       );
     }).catch(function () {});
-    t.finished.finally(function () { root.classList.remove("theme-vt"); });
+    t.finished.finally(function () { root.classList.remove("theme-vt"); announce(); });
   });
   $("#menuBtn").addEventListener("click", function () { document.body.classList.toggle("nav-open"); });
   $("#scrim").addEventListener("click", function () { document.body.classList.remove("nav-open"); });
@@ -222,7 +278,7 @@
   }
   function loadIndex() {
     if (index) return Promise.resolve();
-    index = indexDoc(document, nav(current));
+    index = nav(current) ? indexDoc(document, nav(current)) : [];
     return Promise.all(PAGES.filter(function (p) { return p.key !== current; }).map(function (p) {
       return fetch(p.href).then(function (r) { return r.text(); }).then(function (t) {
         index = index.concat(indexDoc(new DOMParser().parseFromString(t, "text/html"), p));
