@@ -1,17 +1,37 @@
 name: Deploy docs
+
+# The site is plain static HTML, so the workflow just publishes the repo folder.
+# Anything you add (pages, images, fonts, robots.txt, sitemap.xml, CNAME) is deployed automatically.
 on:
   push: { branches: [main] }
   workflow_dispatch:
+
 permissions: { contents: read, pages: write, id-token: write }
 concurrency: { group: pages, cancel-in-progress: true }
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check required files
+        run: |
+          for f in index.html 404.html styles.css shell.js; do
+            test -f "$f" || { echo "::error::Missing required file: $f"; exit 1; }
+          done
+
+      - name: Collect site files
+        run: |
+          mkdir _site
+          # every tracked file except repo/meta files
+          git ls-files -z -- . ':(exclude).github' ':(exclude)README.md' ':(exclude)LICENSE*' ':(exclude)*.patch' ':(exclude).gitignore' \
+            | xargs -0 cp --parents -t _site
+          touch _site/.nojekyll
+          echo "Publishing:" && find _site -type f | sort
+
       - uses: actions/configure-pages@v5
-      - run: mkdir _site && cp *.html *.svg styles.css shell.js _site/
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
       - id: d
