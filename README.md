@@ -34,6 +34,7 @@ Each gem has its own file, so fixing one gem's docs never touches another's.
 - Toast messages for code copy, section-link copy and theme switch.
 - Scroll animations. Everything switches off for visitors who have "reduce motion" turned on.
 - A 404 page with a "did you mean…?" suggestion for close typos.
+- Clean URLs on the live site: `/respondo-docs/respondo` instead of `/respondo-docs/respondo.html`. Old `.html` links keep working and are tidied in the address bar.
 
 ## Project structure
 
@@ -139,6 +140,12 @@ respondoToast("Heads up", "info");            // info (accent color)
 respondoToast("Something failed", "error");   // error (red)
 respondoToast("Stays longer", "success", 4000); // optional duration in ms
 ```
+
+### Clean URLs
+
+On the live site (any real domain, such as `*.github.io` or a custom domain) `shell.js` rewrites internal links and the address bar to drop `.html`, so `respondo.html` shows as `/respondo` and `index.html` as `/`. GitHub Pages serves `respondo.html` at `/respondo` by itself, so no redirect rules are needed. Old `.html` links still work.
+
+On `localhost`, other private addresses (such as `192.168.x.x`) and `file://`, the real `.html` links are kept, because plain file servers like Live Server and `python -m http.server` do not resolve `/respondo` to `respondo.html`.
 
 ## Notes
 
