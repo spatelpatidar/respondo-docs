@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page not found · Respondo Docs</title>
+<meta name="description" content="The page you were looking for could not be found.">
+<meta name="robots" content="noindex">
+<!-- A 404 can be served from any depth (/respondo-docs/a/b/c), so make every relative URL resolve from the site root.
+     GitHub project pages live under /<repo>/; on a custom domain or localhost the root is "/". -->
+<script>(function(){var p=location.pathname.split("/"),gh=/\.github\.io$/.test(location.hostname)&&p[1];document.write('<base href="'+(gh?"/"+p[1]+"/":"/")+'">')})()</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add("shell-pending");setTimeout(function(){document.documentElement.classList.remove("shell-pending")},3000)</script>
+<script>try{var t=localStorage.getItem("respondo-theme");if(t){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}</script>
+<link rel="preload" href="shell.js" as="script">
+<link rel="stylesheet" href="styles.css">
+<style>html.shell-pending body>article{opacity:0}</style>
+<noscript><style>html.shell-pending body>article{opacity:1}</style></noscript>
+</head>
+<body data-page="notfound" data-repo="">
+<article class="page active nf">
+  <div class="nf-code" aria-hidden="true">404</div>
+  <h1>Page not found</h1>
+  <p class="lede">We couldn't find <code id="nf-path">this page</code>. It may have moved, or the link may have a typo.</p>
+  <p id="nf-suggest" hidden>Did you mean <a id="nf-suggest-link" href="index.html"></a>?</p>
+
+  <div class="nf-actions">
+    <a class="btn primary" href="index.html">Back to overview</a>
+    <button class="btn" type="button" id="nf-search">Search the docs</button>
+  </div>
+
+  <p class="nf-label">Or jump straight to a gem</p>
+  <div class="cards">
+    <a class="card" href="respondo.html" style="--c:var(--json)"><h3>respondo</h3><p>Consistent JSON responses for Rails.</p></a>
+    <a class="card" href="respondo-graphql.html" style="--c:var(--gql)"><h3>respondo-graphql</h3><p>GraphQL-spec responses.</p></a>
+    <a class="card" href="respondo-grpc.html" style="--c:var(--grpc)"><h3>respondo-grpc</h3><p>Envelopes and status codes for gRPC.</p></a>
+  </div>
+</article>
+<script>
+(function () {
+  var path = decodeURIComponent(location.pathname), el = document.getElementById("nf-path");
+  if (path && path !== "/") el.textContent = path;
+
+  // "Did you mean …?" for near misses such as /respondo-graphq or /compare.htm
+  var pages = { "respondo": "respondo.html", "respondo-graphql": "respondo-graphql.html", "respondo-grpc": "respondo-grpc.html", "compare": "compare.html", "overview": "index.html" };
+  var seg = path.split("/").filter(Boolean).pop() || "";
+  seg = seg.replace(/\.html?$/i, "").toLowerCase();
+  function lev(a, b) {
+    var d = [], i, j;
+    for (i = 0; i <= a.length; i++) d[i] = [i];
+    for (j = 1; j <= b.length; j++) d[0][j] = j;
+    for (i = 1; i <= a.length; i++) for (j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  if (seg) {
+    var best = null, score = 99;
+    Object.keys(pages).forEach(function (k) { var s = lev(seg, k); if (s < score) { score = s; best = k; } });
+    if (best && seg.length >= 4 && score <= Math.floor(best.length * 0.25)) {   // close typos only
+      var a = document.getElementById("nf-suggest-link");
+      a.textContent = best; a.href = pages[best];
+      document.getElementById("nf-suggest").hidden = false;
+    }
+  }
+  document.getElementById("nf-search").addEventListener("click", function () {
+    var b = document.getElementById("searchBtn"); if (b) b.click();
+  });
+})();
+</script>
+<script src="shell.js"></script>
+</body>
+</html>
