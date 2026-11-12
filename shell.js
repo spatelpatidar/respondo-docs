@@ -13,6 +13,17 @@
     { key: "grpc", href: "respondo-grpc.html", title: "respondo-grpc", color: "var(--grpc)" }
   ];
   var current = document.body.dataset.page, repo = document.body.dataset.repo;
+
+  /* ---------- clean URLs: /respondo instead of /respondo.html (live site only) ----------
+     GitHub Pages serves respondo.html at /respondo too. On localhost, plain file servers and file://
+     the real .html links are kept, so local testing never breaks. */
+  var host = location.hostname;
+  var PROD = /^https?:$/.test(location.protocol) && host.indexOf(".") > -1 && !/^\d+\.\d+\.\d+\.\d+$/.test(host);
+  function clean(h) {
+    if (!PROD || !h || /^([a-z][a-z0-9+.-]*:|\/\/|#)/i.test(h)) return h;     // external, mailto:, same-page anchors
+    h = h.replace(/(^|\/)index\.html(?=$|[#?])/, "$1").replace(/\.html(?=$|[#?])/, "");
+    return (h === "" || h.charAt(0) === "#" || h.charAt(0) === "?") ? "./" + h : h;
+  }
   var GH = '<svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
 
   /* ---------- build the shell around the page's <article> ---------- */
@@ -69,6 +80,13 @@
   while (shell.firstChild) document.body.insertBefore(shell.firstChild, $("script[src='shell.js']"));
 
   document.documentElement.classList.remove("shell-pending"); // header, sidebar and content now appear together
+  if (PROD) {
+    $$("a[href]").forEach(function (a) { a.setAttribute("href", clean(a.getAttribute("href"))); });
+    if (current !== "notfound") {      // someone opened /respondo.html: show /respondo in the address bar
+      var shown = location.pathname.replace(/\/index\.html$/, "/").replace(/\.html$/, "");
+      if (shown !== location.pathname) { try { history.replaceState(null, "", shown + location.search + location.hash); } catch (e) {} }
+    }
+  }
   var toc = $("#toc"), modal = $("#modal");
   (function () {
     var h = $(".header"), seen = false;
@@ -298,7 +316,7 @@
     results.innerHTML = ""; sel = -1;
     if (!hits.length) { results.innerHTML = '<div class="none">No results</div>'; return; }
     hits.slice(0, 12).forEach(function (h) {
-      var a = document.createElement("a"); a.href = h.e.href;
+      var a = document.createElement("a"); a.setAttribute("href", clean(h.e.href));
       var snip = t && h.pos > -1 ? "…" + h.e.text.slice(Math.max(0, h.pos - 30), h.pos + 80).trim() + "…" : "";
       var b = document.createElement("strong"); b.textContent = h.e.head;
       var s = document.createElement("small"); s.textContent = h.e.title + (snip ? " · " + snip : "");
